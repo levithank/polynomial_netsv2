@@ -20,8 +20,8 @@ import source.yaml_utils as yaml_utils
 from source.miscs.model_moiving_average import ModelMovingAverage
 from source.misc_train_utils import create_result_dir, load_models, ensure_config_paths, plot_losses_log
 
-
-def make_optimizer(model, comm, alpha=0.001, beta1=0.9, beta2=0.999, chmn=False, weight_decay_rate=0):
+#comm removed from def
+def make_optimizer(model, alpha=0.001, beta1=0.9, beta2=0.999, chmn=False, weight_decay_rate=0):
     # # 12/2018: problem in minoas, probably related with openmpi.
     #if chmn:
        # optimizer = chainermn.create_multi_node_optimizer(
@@ -62,7 +62,7 @@ def main():
     # # get the pc name, e.g. for chainerui.
     pcname = gethostname()
     print('Init on pc: {}.'.format(pcname))
-    if comm.rank == 0:
+    if True: #changes from comm.rank==0
         print('==========================================')
         print('Using {} communicator'.format(args.communicator))
         print('==========================================')
@@ -79,7 +79,7 @@ def main():
         chainer.serializers.load_npz(args.dis_snapshot, dis)
     # Optimizer
     # # convenience function for optimizer:
-    func_opt = lambda net, alpha, wdr0=0: make_optimizer(net, comm, chmn=args.multiprocessing,
+    func_opt = lambda net, alpha, wdr0=0: make_optimizer(net, chmn=args.multiprocessing,
                                           alpha=alpha, beta1=config.adam['beta1'], 
                                           beta2=config.adam['beta2'], weight_decay_rate=wdr0)
     # Optimizer
