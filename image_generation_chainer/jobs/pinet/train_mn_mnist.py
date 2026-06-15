@@ -56,12 +56,9 @@ def main():
     config = yaml_utils.Config(yaml.load(open(args.config_path), Loader=yaml.FullLoader)) # changed from config = yaml_utils.Config(yaml.load(open(args.config_path)))
     # # ensure that the paths of the config are correct.
     config = ensure_config_paths(config)
-    try:
-        comm = chainermn.create_communicator(args.communicator)
-    except:
-        comm = chainermn.create_communicator()
+  
     device = 0
-    chainer.cuda.get_device_from_id(device).use()
+    chainer.cuda.get_device_from_id(device).use() # this use to be somethign else check og repo got rid of due to single gpu on colab.
     # # get the pc name, e.g. for chainerui.
     pcname = gethostname()
     print('Init on pc: {}.'.format(pcname))

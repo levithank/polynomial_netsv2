@@ -17,3 +17,4 @@
 # personal testout files.
 personal.py
 
+*.ipynb
