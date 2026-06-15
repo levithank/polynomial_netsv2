@@ -6,7 +6,7 @@ import argparse
 import chainer
 from chainer import training
 from chainer.training import extensions, extension
-import chainermn
+# removed import chainermn
 import multiprocessing
 
 base = os.path.dirname(os.path.abspath(__file__))
@@ -23,12 +23,12 @@ from source.misc_train_utils import create_result_dir, load_models, ensure_confi
 
 def make_optimizer(model, comm, alpha=0.001, beta1=0.9, beta2=0.999, chmn=False, weight_decay_rate=0):
     # # 12/2018: problem in minoas, probably related with openmpi.
-    if chmn:
-        optimizer = chainermn.create_multi_node_optimizer(
-            chainer.optimizers.Adam(alpha=alpha, beta1=beta1, beta2=beta2, 
-                                    weight_decay_rate=weight_decay_rate), comm)
-    else:
-        optimizer = chainer.optimizers.Adam(alpha=alpha, beta1=beta1, beta2=beta2,
+    #if chmn:
+       # optimizer = chainermn.create_multi_node_optimizer(
+      #      chainer.optimizers.Adam(alpha=alpha, beta1=beta1, beta2=beta2, 
+     #                               weight_decay_rate=weight_decay_rate), comm)
+    #else:
+    optimizer = chainer.optimizers.Adam(alpha=alpha, beta1=beta1, beta2=beta2,
                                             weight_decay_rate=weight_decay_rate)
     optimizer.setup(model)
     return optimizer
@@ -53,14 +53,14 @@ def main():
     parser.add_argument('--label', type=str, default='synth')
     parser.add_argument('--batch_val', type=int, default=1000)
     args = parser.parse_args()
-    config = yaml_utils.Config(yaml.load(open(args.config_path)))
+    config = yaml_utils.Config(yaml.load(open(args.config_path), Loader=yaml.FullLoader)) # changed from config = yaml_utils.Config(yaml.load(open(args.config_path)))
     # # ensure that the paths of the config are correct.
     config = ensure_config_paths(config)
     try:
         comm = chainermn.create_communicator(args.communicator)
     except:
         comm = chainermn.create_communicator()
-    device = comm.intra_rank
+    device = 0
     chainer.cuda.get_device_from_id(device).use()
     # # get the pc name, e.g. for chainerui.
     pcname = gethostname()
@@ -109,9 +109,9 @@ def main():
     else:
         _ = yaml_utils.load_dataset(config)  # Dummy, for adding path to the dataset module
         dataset = None
-    dataset = chainermn.scatter_dataset(dataset, comm)
+    #removed dataset = chainermn.scatter_dataset(dataset, comm)
     # Iterator
-    multiprocessing.set_start_method('forkserver')
+    # removed multiprocessing.set_start_method('forkserver') bc colab doesnt like
     if args.multiprocessing:
         # # In minoas this might fail with the forkserver.py error.
         iterator = chainer.iterators.MultiprocessIterator(dataset, config.batchsize,
