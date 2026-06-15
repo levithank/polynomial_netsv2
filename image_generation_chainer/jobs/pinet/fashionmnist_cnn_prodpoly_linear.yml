@@ -45,7 +45,7 @@ dataset:
   dataset_name: MnistDb
   args:
     path: /vol/deform/grigoris/databases/fashion_mnist/
-    labels_suff: train_labels.npy
+    #labels_suff: train_labels.npy this doesnt exist in my repo
 
 
 adam:
