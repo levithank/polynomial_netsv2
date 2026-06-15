@@ -94,7 +94,7 @@ def main():
         print('Fixing the linear layer of the discriminator!')
         dis.disable_update()
     # Dataset
-    if comm.rank == 0:
+    if True: #changed from comm.rank
         dataset = yaml_utils.load_dataset(config)
         # # even though not new samples, use as proxy for iid validation ones.
         if hasattr(dataset, 'n_concats') and dataset.n_concats == 1:
@@ -130,12 +130,12 @@ def main():
         out = os.path.join(args.results_dir, mainf, '')
     else:
         out = 'results/test'
-    if comm.rank == 0:
+    if True:#changed from comm.rank==0
         create_result_dir(out, args.config_path, config)
     trainer = training.Trainer(updater, (config.iteration, 'iteration'), out=out)
     report_keys = ['loss_dis', 'loss_gen', 'kl', 'ndb', 'JS', 'dis_real', 'dis_fake']
 
-    if comm.rank == 0:
+    if True: #changes from comm.rank==0
         # Set up logging
 #         trainer.extend(extensions.snapshot(), trigger=(config.snapshot_interval, 'iteration'))
         for m in models.values():
