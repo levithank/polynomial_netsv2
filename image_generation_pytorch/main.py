@@ -35,7 +35,7 @@ def main(config):
         data_loader = get_loader(data_path=config.data_path,
                                  batch_size=config.batch_size,
                                  mode=config.mode,
-                                 num_workers=config.num_workers)
+                                 )
 
 
         shared_path = '{}{}'.format(config.base_path, config.time_now)
