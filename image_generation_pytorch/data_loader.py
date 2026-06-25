@@ -40,8 +40,7 @@ class CircleDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
-def get_loader(batch_size, n_points=10000, num_workers=4, shuffle=True):
+def get_loader(data_path=None, batch_size=64, mode='train', num_workers=4, n_points=10000):
     dataset = CircleDataset(n_points=n_points)
     return torch.utils.data.DataLoader(dataset, batch_size=batch_size,
-                                       shuffle=shuffle, num_workers=num_workers)
-
+                                       shuffle=(mode == 'train'), num_workers=num_workers)
