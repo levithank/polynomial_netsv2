@@ -35,10 +35,10 @@ def main(config):
         data_loader = get_loader(data_path=config.data_path,
                                  batch_size=config.batch_size,
                                  mode=config.mode,
-                                 )
+                                 num_workers=config.num_workers)
 
 
-        shared_path = '{}{}'.format(config.base_path, config.time_now)
+        shared_path = '{}{}'.format(config.base_path, config.time_now)  
 
         config.base_path = shared_path
         config.model_path = "{}/{}".format(shared_path, config.model_path)
