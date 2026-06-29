@@ -157,7 +157,7 @@ class Solver(object):
     def train(self):
         total_step = len(self.data_loader)
         for epoch in range(self.num_epochs):
-            for i, (data, _) in enumerate(self.data_loader):
+            for i, data in enumerate(self.data_loader):
 
                 batch_size = data.size(0)
                 # train Discriminator
