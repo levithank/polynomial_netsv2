@@ -1,179 +1,301 @@
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn.utils import spectral_norm as SN
-from numpy import sqrt
 import torch
-from torch.nn.functional import linear  
+import torch.nn as nn
+from torch.nn.utils import spectral_norm
 
 
-class Generator(nn.Module):
-    def __init__(self, g_layers=[], activation_fn=True, inject_z=True, transform_rep=6, transform_z=False, concat_injection=False, norm='instance'):
-        super(Generator, self).__init__()
-        self.activation_fn = activation_fn
-        self.g_layers = g_layers
-        self.inject_z = inject_z
-        self.num_layers = len(self.g_layers) - 1  # minus the input/output sizes 
-        self.transform_rep = transform_rep
-        self.transform_z = transform_z
-        self.concat_injection = concat_injection
-        self.norm = norm
+class PolynomialGenerator2D(nn.Module):
+    """
+    Polynomial generator for 2D point data.
 
-        if self.transform_z:
-            for i in range(self.transform_rep):
-                setattr(self, "global{}".format(i), nn.Sequential(
-                                                        nn.Linear(self.g_layers[0], self.g_layers[0]),
-                                                        nn.ReLU()))
+    Input:
+        z with shape [batch_size, z_dim]
 
-        for i in range(self.num_layers):
-                if i == 0:
-                    if not self.activation_fn:
-                        if self.norm == 'instance':
-                            setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                    nn.ConvTranspose2d(self.g_layers[i], self.g_layers[i+1], 4, 1, 0, bias=False),
-                                                                    nn.InstanceNorm2d(self.g_layers[i+1])))  
-                        else:
-                            setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                    nn.ConvTranspose2d(self.g_layers[i], self.g_layers[i+1], 4, 1, 0, bias=False),
-                                                                    nn.BatchNorm2d(self.g_layers[i+1])))                              
-                    else:
-                        if self.norm == 'instance':
-                            setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                    nn.ConvTranspose2d(self.g_layers[i], self.g_layers[i+1], 4, 1, 0, bias=False), 
-                                                                    nn.InstanceNorm2d(self.g_layers[i+1]),
-                                                                    nn.ReLU()))
-                        else:
-                            setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                    nn.ConvTranspose2d(self.g_layers[i], self.g_layers[i+1], 4, 1, 0, bias=False), 
-                                                                    nn.BatchNorm2d(self.g_layers[i+1]),
-                                                                    nn.ReLU()))
+    Output:
+        generated points with shape [batch_size, 2]
+        Each row is one point: [x_coordinate, y_coordinate]
+    """
 
-                elif i == self.num_layers - 1:
-                    if not self.activation_fn:
-                        setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                nn.ConvTranspose2d(self.g_layers[i], self.g_layers[i+1], 3, 1, 1, bias=False),
-                                                                nn.Tanh()))
-                    else:
-                        setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                nn.ConvTranspose2d(self.g_layers[i], self.g_layers[i+1], 3, 1, 1, bias=False),
-                                                                nn.Tanh())) 
-                else:
-                    if self.inject_z:
-                        if not self.activation_fn:
-                            setattr(self, "inject{}".format(i), nn.Linear(self.g_layers[0], self.g_layers[i]))
-                        else:
-                            setattr(self, "inject{}".format(i), nn.Sequential(
-                                                                    nn.Linear(self.g_layers[0], self.g_layers[i]),
-                                                                    nn.ReLU()))                          
-                    if not self.activation_fn:
-                        if self.norm == 'instance':
-                            setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                    nn.ConvTranspose2d(self.g_layers[i], self.g_layers[i+1], 4, 2, 1, bias=False),
-                                                                    nn.InstanceNorm2d(self.g_layers[i+1])))
-                        else:
-                            setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                    nn.ConvTranspose2d(self.g_layers[i], self.g_layers[i+1], 4, 2, 1, bias=False),
-                                                                    nn.BatchNorm2d(self.g_layers[i+1])))                            
-                        if self.concat_injection:
-                            if self.norm == 'instance':
-                                setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                    nn.ConvTranspose2d(2*self.g_layers[i], self.g_layers[i+1], 4, 2, 1, bias=False),
-                                                                    nn.InstanceNorm2d(self.g_layers[i+1])))
-                            else:
-                                setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                    nn.ConvTranspose2d(2*self.g_layers[i], self.g_layers[i+1], 4, 2, 1, bias=False),
-                                                                    nn.BatchNorm2d(self.g_layers[i+1])))                                
-                    else:
-                        if self.norm == 'instance':
-                            setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                    nn.ConvTranspose2d(self.g_layers[i], self.g_layers[i+1], 4, 2, 1, bias=False), 
-                                                                    nn.InstanceNorm2d(self.g_layers[i+1]),
-                                                                    nn.ReLU()))
-                        else:
-                            setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                    nn.ConvTranspose2d(self.g_layers[i], self.g_layers[i+1], 4, 2, 1, bias=False), 
-                                                                    nn.BatchNorm2d(self.g_layers[i+1]),
-                                                                    nn.ReLU()))                            
-                        if self.concat_injection:
-                            if self.norm == 'instance':
-                                setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                        nn.ConvTranspose2d(2*self.g_layers[i], self.g_layers[i+1], 4, 2, 1, bias=False), 
-                                                                        nn.InstanceNorm2d(self.g_layers[i+1]),
-                                                                        nn.ReLU())) 
-                            else:
-                                setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                        nn.ConvTranspose2d(2*self.g_layers[i], self.g_layers[i+1], 4, 2, 1, bias=False), 
-                                                                        nn.BatchNorm2d(self.g_layers[i+1]),
-                                                                        nn.ReLU()))                                   
+    def __init__(
+        self,
+        z_dim=16,
+        hidden_dim=128,
+        num_orders=3,
+        activation_fn=False,
+        bound_output=False
+    ):
+        super().__init__()
 
-    def forward(self, x):
-        z = x.squeeze(3).squeeze(2)
-        if self.transform_z:
-            for i in range(self.transform_rep):
-                z = getattr(self, "global{}".format(i))(z)
-        x = z.unsqueeze(2).unsqueeze(3)
-        for i in range(self.num_layers):
-            if self.inject_z:
-                if i > 0 and i < self.num_layers - 1:
-                    a = getattr(self, "inject{}".format(i))(z)
-                    a = a.unsqueeze(2).unsqueeze(3).expand(x.size(0), x.size(1), x.size(2), x.size(3))
-                    if self.concat_injection:
-                        x = torch.cat((x, a), dim=1)
-                    else:
-                        x *= a 
-            x = getattr(self, "layer{}".format(i))(x)
-        return x
+        # z_dim:
+        # Number of random values in one noise vector.
+        # This is not the number of circle coordinates.
+        # Example: one z vector has shape [16].
+        self.z_dim = z_dim
+
+        # hidden_dim:
+        # Number of internal features used by the generator.
+        # 128 is a design choice, not a property of the circle.
+        self.hidden_dim = hidden_dim
+
+        # num_orders:
+        # Maximum polynomial order created by repeated multiplication.
+        # Starting representation is first order.
+        # Every additional injection can increase the order by one.
+        if num_orders < 1:
+            raise ValueError("num_orders must be at least 1")
+
+        self.num_orders = num_orders
+
+        # ReLU can improve practical training.
+        #
+        # activation_fn=False:
+        # The generator remains a strict polynomial function,
+        # apart from an optional output Tanh.
+        #
+        # activation_fn=True:
+        # The generator becomes piecewise polynomial because of ReLU.
+        self.activation = (
+            nn.ReLU(inplace=False)
+            if activation_fn
+            else nn.Identity()
+        )
+
+        # First transformation:
+        #
+        # [batch, z_dim] -> [batch, hidden_dim]
+        #
+        # Mathematically:
+        # h_1 = W_1 z + b_1
+        self.first_layer = nn.Linear(
+            in_features=z_dim,
+            out_features=hidden_dim,
+            bias=True
+        )
+
+        # These layers repeatedly transform the ORIGINAL noise z.
+        #
+        # Each layer performs:
+        # a_n = A_n z + c_n
+        #
+        # Shape:
+        # [batch, z_dim] -> [batch, hidden_dim]
+        #
+        # ModuleList registers all these layers as trainable parameters.
+        self.inject_layers = nn.ModuleList([
+            nn.Linear(
+                in_features=z_dim,
+                out_features=hidden_dim,
+                bias=True
+            )
+            for _ in range(num_orders - 1)
+        ])
+
+        # These layers transform the current hidden representation.
+        #
+        # Each performs:
+        # h = S_n h + b_n
+        #
+        # Shape:
+        # [batch, hidden_dim] -> [batch, hidden_dim]
+        self.state_layers = nn.ModuleList([
+            nn.Linear(
+                in_features=hidden_dim,
+                out_features=hidden_dim,
+                bias=True
+            )
+            for _ in range(num_orders - 1)
+        ])
+
+        # Final transformation:
+        #
+        # [batch, hidden_dim] -> [batch, 2]
+        #
+        # The two outputs are the generated x and y coordinates.
+        self.output_layer = nn.Linear(
+            in_features=hidden_dim,
+            out_features=2,
+            bias=True
+        )
+
+        # Tanh restricts generated coordinates to approximately [-1, 1].
+        #
+        # This can be useful for a unit-circle dataset.
+        # However, Tanh means the complete generator is no longer
+        # strictly one global polynomial.
+        self.output_activation = (
+            nn.Tanh()
+            if bound_output
+            else nn.Identity()
+        )
+
+    def forward(self, z):
+        """
+        z shape: [batch_size, z_dim]
+        """
+
+        if z.ndim != 2:
+            raise ValueError(
+                f"Expected z to have shape [batch, {self.z_dim}], "
+                f"but received {tuple(z.shape)}"
+            )
+
+        if z.size(1) != self.z_dim:
+            raise ValueError(
+                f"Expected each noise vector to contain {self.z_dim} "
+                f"values, but received {z.size(1)}"
+            )
+
+        # ---------------------------------------------------------
+        # First-order representation
+        # ---------------------------------------------------------
+        #
+        # h = W_1 z + b_1
+        #
+        # Shape:
+        # [batch, z_dim] -> [batch, hidden_dim]
+        h = self.first_layer(z)
+        h = self.activation(h)
+
+        # ---------------------------------------------------------
+        # Higher-order polynomial interactions
+        # ---------------------------------------------------------
+        for inject_layer, state_layer in zip(
+            self.inject_layers,
+            self.state_layers
+        ):
+            # Transform the original noise vector again.
+            #
+            # a = A_n z + c_n
+            #
+            # Shape:
+            # [batch, z_dim] -> [batch, hidden_dim]
+            a = inject_layer(z)
+            a = self.activation(a)
+
+            # Element-wise/Hadamard multiplication.
+            #
+            # h and a both have shape:
+            # [batch, hidden_dim]
+            #
+            # Therefore:
+            # h[i, j] = h[i, j] * a[i, j]
+            #
+            # This multiplication creates higher-order terms in z.
+            h = h * a
+
+            # Apply the S[n] transformation.
+            #
+            # h = S_n h + b_n
+            #
+            # For point data, S[n] is an nn.Linear layer.
+            # For DCGAN image data, S[n] was a ConvTranspose2d block.
+            h = state_layer(h)
+            h = self.activation(h)
+
+        # Convert the final hidden representation into [x, y].
+        point = self.output_layer(h)
+
+        # Optional restriction to [-1, 1].
+        point = self.output_activation(point)
+
+        return point
 
 
-class Discriminator(nn.Module):
-    def __init__(self, d_layers=[], activation_fn=True, spectral_norm=False):
-        super(Discriminator, self).__init__()
-        self.activation_fn = activation_fn
-        self.d_layers = d_layers
-        self.num_layers = len(self.d_layers) - 1  # minus the input/output sizes 
-        for i in range(self.num_layers):
-            if i == 0:
-                if not spectral_norm:
-                    if not self.activation_fn:
-                        setattr(self, "layer{}".format(i), nn.Conv2d(self.d_layers[i], self.d_layers[i+1], 4, 2, 1, bias=False))
-                    else:
-                        setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                nn.Conv2d(self.d_layers[i], self.d_layers[i+1], 4, 2, 1, bias=False),
-                                                                nn.LeakyReLU(0.2, inplace=True)))
-                else:
-                    if not self.activation_fn:
-                        setattr(self, "layer{}".format(i), spectral_norm(nn.Conv2d(self.d_layers[i], self.d_layers[i+1], 4, 2, 1, bias=False)))
-                    else:
-                        setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                spectral_norm(nn.Conv2d(self.d_layers[i], self.d_layers[i+1], 4, 2, 1, bias=False)),
-                                                                nn.LeakyReLU(0.2, inplace=True)))
-            elif i == self.num_layers - 1:
-                if not spectral_norm:
-                    setattr(self, "layer{}".format(i), nn.Conv2d(self.d_layers[i], self.d_layers[i+1], 4, 2, 1, bias=False))           
-                else:
-                    setattr(self, "layer{}".format(i), spectral_norm(nn.Conv2d(self.d_layers[i], self.d_layers[i+1], 4, 2, 1, bias=False)))                                            
-            else:
-                if not spectral_norm:
-                    if not self.activation_fn:
-                        setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                nn.Conv2d(self.d_layers[i], self.d_layers[i+1], 4, 2, 1, bias=False),
-                                                                nn.BatchNorm2d(self.d_layers[i+1])))     
-                    else:
-                        setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                nn.Conv2d(self.d_layers[i], self.d_layers[i+1], 4, 2, 1, bias=False),
-                                                                nn.BatchNorm2d(self.d_layers[i+1]),
-                                                                nn.LeakyReLU(0.2, inplace=True)))                             
-                else:
-                    if not self.activation_fn:
-                        setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                spectral_norm(nn.Conv2d(self.d_layers[i], self.d_layers[i+1], 4, 2, 1, bias=False)),
-                                                                nn.BatchNorm2d(self.d_layers[i+1])))   
-                    else:
-                        setattr(self, "layer{}".format(i), nn.Sequential(
-                                                                nn.Conv2d(self.d_layers[i], self.d_layers[i+1], 4, 2, 1, bias=False),
-                                                                nn.BatchNorm2d(self.d_layers[i+1]),
-                                                                nn.LeakyReLU(0.2, inplace=True)))         
+class Discriminator2D(nn.Module):
+    """
+    Discriminator for 2D point data.
 
-    def forward(self, x):
-        for i in range(self.num_layers):
-            x = getattr(self, "layer{}".format(i))(x)
-        return x
+    Input:
+        points with shape [batch_size, 2]
+
+    Output:
+        logits with shape [batch_size, 1]
+
+    One score is produced for every [x, y] point.
+    """
+
+    def __init__(
+        self,
+        input_dim=2,
+        hidden_dim=128,
+        use_spectral_norm=False
+    ):
+        super().__init__()
+
+        # input_dim=2 because every sample contains:
+        # [x_coordinate, y_coordinate]
+        self.input_dim = input_dim
+
+        # hidden_dim=128 controls discriminator capacity.
+        # It does not mean the circle has 128 raw features.
+        self.hidden_dim = hidden_dim
+
+        # Helper for optionally adding spectral normalization.
+        #
+        # Spectral normalization can stabilize GAN discriminator
+        # training by controlling the size of the layer weights.
+        def make_linear(in_features, out_features):
+            layer = nn.Linear(
+                in_features=in_features,
+                out_features=out_features,
+                bias=True
+            )
+
+            if use_spectral_norm:
+                layer = spectral_norm(layer)
+
+            return layer
+
+        self.main = nn.Sequential(
+            # First discriminator transformation:
+            #
+            # [batch, 2] -> [batch, 128]
+            make_linear(input_dim, hidden_dim),
+
+            # LeakyReLU keeps a small gradient for negative values.
+            # 0.2 is a common GAN discriminator choice.
+            nn.LeakyReLU(
+                negative_slope=0.2,
+                inplace=False
+            ),
+
+            # Second hidden transformation:
+            #
+            # [batch, 128] -> [batch, 128]
+            make_linear(hidden_dim, hidden_dim),
+
+            nn.LeakyReLU(
+                negative_slope=0.2,
+                inplace=False
+            ),
+
+            # Final real/fake score:
+            #
+            # [batch, 128] -> [batch, 1]
+            make_linear(hidden_dim, 1)
+        )
+
+    def forward(self, points):
+        """
+        points shape: [batch_size, 2]
+        """
+
+        if points.ndim != 2:
+            raise ValueError(
+                f"Expected points to have shape [batch, 2], "
+                f"but received {tuple(points.shape)}"
+            )
+
+        if points.size(1) != self.input_dim:
+            raise ValueError(
+                f"Expected every point to contain {self.input_dim} "
+                f"coordinates, but received {points.size(1)}"
+            )
+
+        # No Sigmoid here.
+        #
+        # The output is a raw logit. This is preferred when using:
+        #
+        # nn.BCEWithLogitsLoss()
+        logits = self.main(points)
+
+        return logits
