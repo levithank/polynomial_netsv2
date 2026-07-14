@@ -83,10 +83,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # training hyper-parameters
-    parser.add_argument('--num_epochs', type=int, default=100)
+    parser.add_argument('--num_epochs', type=int, default=200)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--sample_size', type=int, default=100) 
-    parser.add_argument('--num_workers', type=int, default=16)
+    parser.add_argument('--num_workers', type=int, default=2)
     parser.add_argument('--lr', type=float, default=0.0002)
     parser.add_argument('--beta1', type=float, default=0.5)
     parser.add_argument('--beta2', type=float, default=0.99)
@@ -113,14 +113,14 @@ if __name__ == '__main__':
     parser.add_argument('--base_path', type=str, default='./dcgan_inject/')  # where to save the experiment results
     parser.add_argument('--ckpt_gen_path', type=str, default='')
     parser.add_argument('--log_step', type=int, default=50)
-    parser.add_argument('--sample_step', type=int, default=350)
-    parser.add_argument('--validation_step', type=int, default=350)
+    parser.add_argument('--sample_step', type=int, default=50)
+    parser.add_argument('--validation_step', type=int, default=156)
     parser.add_argument('--validation_path', type=str, default="validation")
     parser.add_argument('--cifar10_path', type=str, default='./cifar_10_stats.pkl')  # the path for the cifar_10_stats.pkl file
     parser.add_argument('--FID_images', type=int, default=2048)
     parser.add_argument('--num_imgs_val', type=int, default=2048)
     parser.add_argument('--max_score', type=float, default=0)
-    parser.add_argument('--save_every', type=int, default=5)
+    parser.add_argument('--save_every', type=int, default=20)
     parser.add_argument('--n_samples', type=int, default=100000)  # number of samples to generate under the ``sample'' scenario
     config = parser.parse_args()
     print(config)
