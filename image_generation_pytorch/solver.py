@@ -76,7 +76,7 @@ class Solver(object):
         # DCGAN config). hidden_dim / num_orders / bound_output fall back
         # to sensible defaults if your argparse doesn't define them yet.
         # ------------------------------------------------------------------
-        self.z_dim = config.g_layers[0]
+        self.z_dim = 4
         self.hidden_dim = getattr(config, 'hidden_dim', 128)
         self.num_orders = getattr(config, 'num_orders', 3)
         self.bound_output = getattr(config, 'bound_output', False)

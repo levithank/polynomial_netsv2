@@ -21,7 +21,7 @@ class Generator(nn.Module):
         hidden_dim=128,
         num_orders=2,
         activation_fn=False,
-        bound_output=False
+        bound_output=True
     ):
         super().__init__()
 
