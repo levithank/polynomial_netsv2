@@ -95,7 +95,7 @@ if __name__ == '__main__':
     parser.add_argument('--activation_fn', type=str2bool, default=True)
     parser.add_argument('--inject_z', type=str2bool, default=True)
     parser.add_argument('--concat_injection', type=str2bool, default=False)  # whether the injection will be concatenated or multiplied
-    parser.add_argument('--loss', type=str, default='original')  # can be changed to Wassterstein GAN with GP. Just put 'wgan-gp'
+    parser.add_argument('--loss', type=str, default='wgan-gp')  # can be changed to Wassterstein GAN with GP. Just put 'wgan-gp'
     parser.add_argument('--gp_weight', type=float, default=10)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--pc_name', type=str, default='neumann')

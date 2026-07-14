@@ -19,7 +19,7 @@ class Generator(nn.Module):
         self,
         z_dim=16,
         hidden_dim=128,
-        num_orders=3,
+        num_orders=2,
         activation_fn=False,
         bound_output=False
     ):
