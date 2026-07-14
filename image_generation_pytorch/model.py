@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.nn.utils import spectral_norm
 
 
-class PolynomialGenerator2D(nn.Module):
+class Generator(nn.Module):
     """
     Polynomial generator for 2D point data.
 
@@ -200,7 +200,7 @@ class PolynomialGenerator2D(nn.Module):
         return point
 
 
-class Discriminator2D(nn.Module):
+class Discriminator(nn.Module):
     """
     Discriminator for 2D point data.
 
