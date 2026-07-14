@@ -27,7 +27,7 @@ import numpy as np
 import torch
 
 class CircleDataset(torch.utils.data.Dataset):
-    def __init__(self, n_points=10000, radius=1.0, noise=0.0):
+    def __init__(self, n_points=10000, radius=1.0, noise=0.01):
         angles = np.random.uniform(0, 2 * np.pi, n_points)
         x = radius * np.cos(angles)
         y = radius * np.sin(angles)
@@ -40,7 +40,7 @@ class CircleDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
-def get_loader(data_path=None, batch_size=64, mode='train', num_workers=4, n_points=10000):
+def get_loader(data_path=None, batch_size=64, mode='train', num_workers=0, n_points=10000):
     dataset = CircleDataset(n_points=n_points)
     return torch.utils.data.DataLoader(dataset, batch_size=batch_size,
                                        shuffle=(mode == 'train'), num_workers=num_workers)
