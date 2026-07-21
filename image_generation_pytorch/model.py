@@ -17,7 +17,7 @@ class Generator(nn.Module):
 
     def __init__(
         self,
-        z_dim=16,
+        z_dim=1,
         hidden_dim=128,
         num_orders=2,
         activation_fn=False,
@@ -215,7 +215,7 @@ class Discriminator(nn.Module):
 
     def __init__(
         self,
-        input_dim=2,
+        input_dim=1,
         hidden_dim=128,
         use_spectral_norm=False
     ):

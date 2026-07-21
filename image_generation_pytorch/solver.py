@@ -76,11 +76,11 @@ class Solver(object):
         # DCGAN config). hidden_dim / num_orders / bound_output fall back
         # to sensible defaults if your argparse doesn't define them yet.
         # ------------------------------------------------------------------
-        self.z_dim = 4
-        self.hidden_dim = getattr(config, 'hidden_dim', 128)
-        self.num_orders = getattr(config, 'num_orders', 3)
-        self.bound_output = getattr(config, 'bound_output', False)
-        self.spectral_norm = config.spectral_norm
+   
+        # self.hidden_dim = getattr(config, 'hidden_dim', 128)
+        # self.num_orders = getattr(config, 'num_orders', 3)
+        # self.bound_output = getattr(config, 'bound_output', True)
+        # self.spectral_norm = config.spectral_norm
 
         self.build_model()
 
@@ -89,18 +89,22 @@ class Solver(object):
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(self.seed)
 
-        self.generator = Generator(
-            z_dim=self.z_dim,
-            hidden_dim=self.hidden_dim,
-            num_orders=self.num_orders,
-            activation_fn=self.activation_fn,
-            bound_output=self.bound_output
-        )
-        self.discriminator = Discriminator(
-            input_dim=2,
-            hidden_dim=self.hidden_dim,
-            use_spectral_norm=self.spectral_norm
-        )
+        self.generator = Generator()
+        self.z_dim = self.generator.z_dim
+        # self.generator = Generator(
+        #     z_dim=self.z_dim,
+        #     hidden_dim=self.hidden_dim,
+        #     num_orders=self.num_orders,
+        #     activation_fn=self.activation_fn,
+        #     bound_output=self.bound_output
+        # )
+        self.discriminator = Discriminator()
+        
+        # self.discriminator = Discriminator(
+        #     input_dim=1,
+        #     hidden_dim=self.hidden_dim,
+        #     use_spectral_norm=self.spectral_norm
+        # )
 
         self.g_optimizer = optim.Adam(
             self.generator.parameters(), self.lr,
@@ -263,13 +267,16 @@ class Solver(object):
                 torch.save(self.discriminator.state_dict(), d_path)
 
     def sample(self, n_samples):
-        self.generator = Generator(
-            z_dim=self.z_dim,
-            hidden_dim=self.hidden_dim,
-            num_orders=self.num_orders,
-            activation_fn=self.activation_fn,
-            bound_output=self.bound_output
-        )
+        # self.generator = Generator(
+        #     z_dim=self.z_dim,
+        #     hidden_dim=self.hidden_dim,
+        #     num_orders=self.num_orders,
+        #     activation_fn=self.activation_fn,
+        #     bound_output=self.bound_output
+        # )
+
+        self.generator = Generator()
+        
         self.generator.load_state_dict(
             torch.load(self.ckpt_gen_path, map_location='cpu'))
         if torch.cuda.is_available():
