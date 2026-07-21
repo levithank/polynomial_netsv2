@@ -215,7 +215,7 @@ class Discriminator(nn.Module):
 
     def __init__(
         self,
-        input_dim=1,
+        input_dim=2,
         hidden_dim=128,
         use_spectral_norm=False
     ):
