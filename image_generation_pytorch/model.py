@@ -194,8 +194,8 @@ class Generator(nn.Module):
         # Convert the final hidden representation into [x, y].
         point = self.output_layer(h)
 
-        # Optional restriction to [-1, 1].
-        point = point / point.norm(dim=1, keepdim=True).clamp_min(1e-8)
+        #activation
+        #point = self.output_activation(point)
 
         return point
 
