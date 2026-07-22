@@ -1,28 +1,18 @@
+import math
+import os
+
+import numpy as np
 import torch
 import torch.nn as nn
-import os
-import json
 from torch import optim
 from torch.autograd import grad as torch_grad
 
-import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # headless-safe (works on Colab / servers)
 import matplotlib.pyplot as plt
 
-from model import Discriminator
-from model import Generator
+from model import Discriminator, Generator
 from logger import Logger
-
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-
-
-def save_score(base_path, entry):
-    save_file = os.path.join(base_path, "scores.json")
-    with open(save_file, 'a+') as fp:
-        json.dump(entry, fp, indent=4)
-        fp.write("\n")
 
 
 def to_cuda(x):
@@ -32,26 +22,16 @@ def to_cuda(x):
 
 
 def to_numpy(x):
-    if x.is_cuda:
-        x = x.data.cpu()
-    return x.detach().numpy()
+    return x.detach().cpu().numpy()
 
 
 class Solver(object):
     def __init__(self, config, data_loader):
-        self.generator = None
-        self.discriminator = None
-        self.g_optimizer = None
-        self.d_optimizer = None
-
-        self.pc_name = config.pc_name
-        self.base_path = config.base_path
         self.data_loader = data_loader
         self.num_epochs = config.num_epochs
         self.sample_size = config.sample_size
         self.logs_path = config.logs_path
         self.save_every = config.save_every
-        self.activation_fn = config.activation_fn
         self.lr = config.lr
         self.beta1 = config.beta1
         self.beta2 = config.beta2
@@ -66,22 +46,6 @@ class Solver(object):
         self.seed = config.seed
         self.criterion = nn.BCEWithLogitsLoss()
 
-        # ------------------------------------------------------------------
-        # Map the old image-GAN config onto the 2D point model.
-        #
-        # The point Generator expects:
-        #   z_dim, hidden_dim, num_orders, activation_fn, bound_output
-        #
-        # We reuse g_layers[0] as z_dim (it was 100 = noise size in the
-        # DCGAN config). hidden_dim / num_orders / bound_output fall back
-        # to sensible defaults if your argparse doesn't define them yet.
-        # ------------------------------------------------------------------
-   
-        # self.hidden_dim = getattr(config, 'hidden_dim', 128)
-        # self.num_orders = getattr(config, 'num_orders', 3)
-        # self.bound_output = getattr(config, 'bound_output', True)
-        # self.spectral_norm = config.spectral_norm
-
         self.build_model()
 
     def build_model(self):
@@ -89,22 +53,20 @@ class Solver(object):
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(self.seed)
 
+        # Architecture is defined entirely by the defaults in model.py.
         self.generator = Generator()
-        self.z_dim = self.generator.z_dim
-        # self.generator = Generator(
-        #     z_dim=self.z_dim,
-        #     hidden_dim=self.hidden_dim,
-        #     num_orders=self.num_orders,
-        #     activation_fn=self.activation_fn,
-        #     bound_output=self.bound_output
-        # )
         self.discriminator = Discriminator()
-        
-        # self.discriminator = Discriminator(
-        #     input_dim=1,
-        #     hidden_dim=self.hidden_dim,
-        #     use_spectral_norm=self.spectral_norm
-        # )
+        self.z_dim = self.generator.z_dim
+
+        print("\nGenerator configuration:")
+        print("  z_dim:", self.generator.z_dim)
+        print("  hidden_dim:", self.generator.hidden_dim)
+        print("  num_orders:", self.generator.num_orders)
+        print("  activation:", self.generator.activation)
+
+        print("\nDiscriminator configuration:")
+        print("  input_dim:", self.discriminator.input_dim)
+        print("  hidden_dim:", self.discriminator.hidden_dim)
 
         self.g_optimizer = optim.Adam(
             self.generator.parameters(), self.lr,
@@ -116,15 +78,20 @@ class Solver(object):
         )
         self.logger = Logger(self.logs_path)
 
-        self.gen_params = sum(p.numel() for p in self.generator.parameters() if p.requires_grad)
-        self.disc_params = sum(p.numel() for p in self.discriminator.parameters() if p.requires_grad)
-        print("Generator params: {}".format(self.gen_params))
-        print("Discriminator params: {}".format(self.disc_params))
-        print("Total params: {}".format(self.gen_params + self.disc_params))
+        gen_params = sum(p.numel() for p in self.generator.parameters() if p.requires_grad)
+        disc_params = sum(p.numel() for p in self.discriminator.parameters() if p.requires_grad)
+        print("Generator params: {}".format(gen_params))
+        print("Discriminator params: {}".format(disc_params))
+        print("Total params: {}".format(gen_params + disc_params))
 
         if torch.cuda.is_available():
             self.generator.cuda()
             self.discriminator.cuda()
+
+    def sample_z(self, n):
+        """Cauchy prior -> theta = 2*arctan(z) is uniform on the circle."""
+        u = torch.rand(n, self.z_dim)
+        return to_cuda(torch.tan(math.pi * (u - 0.5)).clamp(-1e4, 1e4))
 
     def reset_grad(self):
         self.discriminator.zero_grad()
@@ -133,26 +100,20 @@ class Solver(object):
     def gradient_penalty(self, real_data, generated_data):
         batch_size = real_data.size(0)
 
-        alpha = torch.rand(batch_size, 1)
-        alpha = alpha.expand_as(real_data)
-        alpha = to_cuda(alpha)
-
-        interpolated = alpha * real_data.data + (1 - alpha) * generated_data.data
-        interpolated = to_cuda(interpolated)
-        interpolated.requires_grad_(True)
+        alpha = to_cuda(torch.rand(batch_size, 1))
+        interpolated = alpha * real_data + (1 - alpha) * generated_data
+        interpolated = interpolated.detach().requires_grad_(True)
 
         prob_interpolated = self.discriminator(interpolated)
 
         gradients = torch_grad(
             outputs=prob_interpolated,
             inputs=interpolated,
-            grad_outputs=to_cuda(torch.ones(prob_interpolated.size())),
-            create_graph=True,
-            retain_graph=True
+            grad_outputs=torch.ones_like(prob_interpolated),
+            create_graph=True
         )[0]
 
-        gradients = gradients.view(batch_size, -1)
-        gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
+        gradients_norm = torch.sqrt((gradients ** 2).sum(dim=1) + 1e-12)
         return self.gp_weight * ((gradients_norm - 1) ** 2).mean()
 
     def save_scatter(self, points, path, real_points=None):
@@ -173,31 +134,21 @@ class Solver(object):
         total_step = len(self.data_loader)
         for epoch in range(self.num_epochs):
             for i, data in enumerate(self.data_loader):
-
-                # Some datasets yield (points, labels); keep only points.
-                if isinstance(data, (list, tuple)):
-                    data = data[0]
-
-                data = data.type(torch.FloatTensor)
                 data = to_cuda(data)
                 batch_size = data.size(0)
-
-                real_labels = to_cuda(torch.ones(batch_size, 1))
-                fake_labels = to_cuda(torch.zeros(batch_size, 1))
 
                 # ---------------- train Discriminator ----------------
                 outputs_real = self.discriminator(data)
 
-                # NOTE: the point Generator expects z of shape
-                # [batch, z_dim] -- NOT [batch, z_dim, 1, 1].
-                z = to_cuda(torch.randn(batch_size, self.z_dim))
+                z = self.sample_z(batch_size)
                 fake_data = self.generator(z)
                 outputs_fake = self.discriminator(fake_data.detach())
 
                 if self.loss == 'original':
-                    d_loss_real = self.criterion(outputs_real, real_labels)
-                    d_loss_fake = self.criterion(outputs_fake, fake_labels)
-                    d_loss = d_loss_real + d_loss_fake
+                    real_labels = to_cuda(torch.ones(batch_size, 1))
+                    fake_labels = to_cuda(torch.zeros(batch_size, 1))
+                    d_loss = (self.criterion(outputs_real, real_labels)
+                              + self.criterion(outputs_fake, fake_labels))
                 elif self.loss == 'wgan-gp':
                     gp = self.gradient_penalty(data, fake_data)
                     d_loss = -outputs_real.mean() + outputs_fake.mean() + gp
@@ -209,13 +160,14 @@ class Solver(object):
                 self.d_optimizer.step()
 
                 # ------------------ train Generator -------------------
-                z = to_cuda(torch.randn(batch_size, self.z_dim))
+                z = self.sample_z(batch_size)
                 fake_data = self.generator(z)
                 outputs_fake = self.discriminator(fake_data)
 
                 if self.loss == 'original':
+                    real_labels = to_cuda(torch.ones(batch_size, 1))
                     g_loss = self.criterion(outputs_fake, real_labels)
-                elif self.loss == 'wgan-gp':
+                else:
                     g_loss = -outputs_fake.mean()
 
                 self.reset_grad()
@@ -240,8 +192,7 @@ class Solver(object):
                 # -------------------- sampling ------------------------
                 if (i + 1) % self.sample_step == 0:
                     with torch.no_grad():
-                        z = to_cuda(torch.randn(self.sample_size, self.z_dim))
-                        samples = to_numpy(self.generator(z))
+                        samples = to_numpy(self.generator(self.sample_z(self.sample_size)))
                     fig_path = os.path.join(
                         self.sample_path,
                         "epoch_{}_{}.png".format(epoch + 1, i + 1))
@@ -253,8 +204,7 @@ class Solver(object):
                 # so we save the raw generated points instead.
                 if (i + 1) % self.validation_step == 0:
                     with torch.no_grad():
-                        z = to_cuda(torch.randn(2048, self.z_dim))
-                        val_points = to_numpy(self.generator(z))
+                        val_points = to_numpy(self.generator(self.sample_z(2048)))
                     npy_path = os.path.join(
                         self.model_path,
                         '{}_{}_val_points.npy'.format(epoch + 1, i + 1))
@@ -267,24 +217,12 @@ class Solver(object):
                 torch.save(self.discriminator.state_dict(), d_path)
 
     def sample(self, n_samples):
-        # self.generator = Generator(
-        #     z_dim=self.z_dim,
-        #     hidden_dim=self.hidden_dim,
-        #     num_orders=self.num_orders,
-        #     activation_fn=self.activation_fn,
-        #     bound_output=self.bound_output
-        # )
-
-        self.generator = Generator()
-        
         self.generator.load_state_dict(
             torch.load(self.ckpt_gen_path, map_location='cpu'))
-        if torch.cuda.is_available():
-            self.generator.cuda()
         self.generator.eval()
 
         with torch.no_grad():
-            z_samples = to_cuda(torch.randn(n_samples, self.z_dim))
+            z_samples = self.sample_z(n_samples)
             generated = to_numpy(self.generator(z_samples))
 
         os.makedirs('./saved', exist_ok=True)
