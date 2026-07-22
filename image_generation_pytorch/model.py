@@ -195,7 +195,7 @@ class Generator(nn.Module):
         point = self.output_layer(h)
 
         #activation
-        #point = self.output_activation(point)
+        point = self.output_activation(point)
 
         return point
 
