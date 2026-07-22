@@ -195,7 +195,7 @@ class Generator(nn.Module):
         point = self.output_layer(h)
 
         # Optional restriction to [-1, 1].
-        point = self.output_activation(point)
+        point = point / point.norm(dim=1, keepdim=True).clamp_min(1e-8)
 
         return point
 
