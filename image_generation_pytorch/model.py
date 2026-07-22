@@ -20,7 +20,7 @@ class Generator(nn.Module):
         z_dim=1,
         hidden_dim=128,
         num_orders=3,
-        activation_fn=False,
+        activation_fn=True,
         bound_output=True
     ):
         super().__init__()
