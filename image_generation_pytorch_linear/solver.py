@@ -68,11 +68,11 @@ class Solver(object):
         else:
             print("  dataset: (none — sample/test mode)")
 
-        print("\nGenerator configuration (PolyNet):")
+        print("\nGenerator configuration (Linear):")
         print("  z_dim:", self.generator.z_dim)
         print("  hidden_dim:", self.generator.hidden_dim)
         print("  out_dim:", self.generator.out_dim)
-        print("  num_orders:", self.generator.num_orders)
+        print("  num_layers:", self.generator.num_layers)
         print("  activation:", self.generator.activation)
 
         print("\nDiscriminator configuration:")
@@ -108,10 +108,11 @@ class Solver(object):
 
         config = {
             "generator": {
+                "Linear Model"
                 "z_dim": self.generator.z_dim,
                 "hidden_dim": self.generator.hidden_dim,
                 "out_dim": self.generator.out_dim,
-                "num_orders": self.generator.num_orders,
+                "num_layers": self.generator.num_layers,
                 "activation_fn": self.generator.activation_fn,
                 "activation": self.generator.activation.__class__.__name__,
                 "bound_output": self.generator.bound_output,

@@ -87,7 +87,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--sample_size', type=int, default=100) 
     parser.add_argument('--num_workers', type=int, default=0)
-    parser.add_argument('--lr', type=float, default=0.002) #og 0.0002
+    parser.add_argument('--lr', type=float, default=0.0002)
     parser.add_argument('--beta1', type=float, default=0.5)
     parser.add_argument('--beta2', type=float, default=0.99)
     #parser.add_argument('--g_layers', type=int, nargs='+', default=[100, 512, 256, 128, 64, 3])  # network structure of the Generator. First layer (100) is the size of the noise, the last layer (3) is the output size (RGB image in our case)

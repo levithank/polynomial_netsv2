@@ -14,6 +14,8 @@
 .chainerui_commands
 *tmp_grigoris
 
+**/dcgan_inject/
+
 # personal testout files.
 personal.py
 

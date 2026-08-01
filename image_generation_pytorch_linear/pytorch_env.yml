@@ -1,0 +1,18 @@
+name: polynomial-toy
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  - pip
+  - numpy
+  - scipy
+  - matplotlib
+  - scikit-learn
+  - tensorboard
+  - ipykernel
+
+  - pip:
+      - --index-url https://download.pytorch.org/whl/cpu
+      - torch==2.13.0

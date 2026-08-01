@@ -5,7 +5,8 @@ from torch.nn.utils import spectral_norm
 
 class Generator(nn.Module):
     """
-    Polynomial generator for 2D point data.
+    Standard nonlinear MLP generator for 2D point data.
+    Used as a control model for the NCP generator.
 
     Input:
         z with shape [batch_size, z_dim]
@@ -20,9 +21,9 @@ class Generator(nn.Module):
         z_dim=1,
         hidden_dim=64,
         out_dim=2,
-        num_orders=16,
-        b_dim=1, #constant per ncp formula
-        activation_fn=False,
+        num_layers=16,
+
+        activation_fn=True,
         bound_output=False
 
        
@@ -46,10 +47,9 @@ class Generator(nn.Module):
 
     
         # self.hidden_dim is here to save generator config
-        self.num_orders =  num_orders
+        self.num_layers =  num_layers
 
-        #note
-        self.b_dim=b_dim
+      
 
         #simply here just to save generator config
         self.activation_fn = activation_fn
@@ -73,26 +73,17 @@ class Generator(nn.Module):
 
         
 
+
+        # A_1^t+b first linear transform
+        self.A0= nn.Linear(z_dim, hidden_dim,bias=True)
+
+        # A_N^t+b linear transform
+        self.A = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim,bias=True)for _ in range(num_layers-1)]) 
+
         
-        self.A = nn.ModuleList([nn.Linear(z_dim, hidden_dim,bias=False)for _ in range(num_orders)]) 
-        self.S = nn.ModuleList([nn.Linear(hidden_dim,hidden_dim, bias=False)for _ in range(num_orders)])
+       
 
-        #B1^TB1 bias term for X1
-        # B_n^T
-        self.B = nn.ModuleList([
-            nn.Linear(
-                in_features=b_dim,
-                out_features=hidden_dim,
-                bias=False
-            )
-            for _ in range(num_orders)
-        ])
-
-        # One b_n vector for each polynomial order.
-        self.b = nn.ParameterList([
-            nn.Parameter(torch.ones(b_dim))
-            for _ in range(num_orders)
-        ])
+ 
 
 
         self.out = nn.Linear(hidden_dim,out_dim, bias=True)
@@ -109,33 +100,15 @@ class Generator(nn.Module):
         )
 
     def forward(self, zeta):
-        #A_1^T z
-        az = self.A[0](zeta) 
+       
+        x = self.A0(zeta)
+        x = self.activation(x)
 
-          # B_1^T b_1
-        #
-        # Shape: [hidden_dim]
-        bb = self.B[0](self.b[0])
+        for layer in self.A:
+         x = layer(x)
+         x = self.activation(x)
 
-        # [batch, hidden_dim] * [hidden_dim]
-        #
-        # x_1 = (A_1^T z) ∘ (B_1^T b_1)
-        x = az * bb
-
-        for n in range(1, self.num_orders):
-            # A_n^T z
-            az = self.A[n](zeta)
-
-            # S_n^T x_(n-1)
-            sx = self.S[n - 1](x)
-
-            # B_n^T b_n
-            bb = self.B[n](self.b[n])
-
-            # x_n = (A_n^T z) ∘
-            #       (S_n^T x_(n-1) + B_n^T b_n)
-            x = az * (sx + bb)
-            x=self.activation(x)
+            
 
         # f(z) = Q x_k + psi
         return self.output_activation(self.out(x))
